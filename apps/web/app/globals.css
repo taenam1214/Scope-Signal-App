@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+/*
+ * ScopeSignal brand design tokens.
+ * Colors from the brand spec:
+ *   Deep Navy #0F172A · Signal Blue #2563EB · Amber #F59E0B
+ *   Light bg #F8FAFC · Text #334155 · Borders #E2E8F0
+ * Amber is reserved for review attention, not general decoration.
+ */
+@theme {
+  --color-navy: #0f172a;
+  --color-signal: #2563eb;
+  --color-signal-600: #1d4ed8;
+  --color-amber: #f59e0b;
+  --color-surface: #f8fafc;
+  --color-ink: #334155;
+  --color-line: #e2e8f0;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
