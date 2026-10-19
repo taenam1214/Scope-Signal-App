@@ -1,0 +1,41 @@
+# Local infrastructure for ScopeSignal.
+# Supabase runs via the separate `supabase` CLI (`pnpm db:start`), not here.
+#
+#   docker compose up          # redis + processor API + worker
+#   docker compose up redis    # just the queue backend
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  processor:
+    build:
+      context: ./services/processor
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./services/processor
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    # RQ worker. The `audits` queue is produced in Phase 4; safe to run now (idles).
+    command: ["rq", "worker", "--url", "redis://redis:6379/0", "audits"]
+    depends_on:
+      redis:
+        condition: service_healthy
