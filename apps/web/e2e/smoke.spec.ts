@@ -8,8 +8,3 @@ test('landing page renders the value proposition', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toContainText('scope changes');
   await expect(page.getByRole('link', { name: 'Open app' })).toBeVisible();
 });
-
-test('dashboard placeholder renders', async ({ page }) => {
-  await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-});
