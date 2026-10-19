@@ -7,9 +7,9 @@ AI-assisted scope-change reconciliation for US commercial electrical subcontract
 > support each finding. ScopeSignal does not decide contractual entitlement, guarantee payment, or
 > auto-submit change orders. Every finding links to real source evidence.
 
-This repo is a monorepo built in phases. **Phases 1–2 complete** (repo & environment; auth +
-data model). See `docs/architecture.md` for the full design and `docs/product-decisions.md` for
-the roadmap.
+This repo is a monorepo built in phases. **Phases 1–3 complete** (repo & environment; auth +
+data model; file ingestion). See `docs/architecture.md` for the full design and
+`docs/product-decisions.md` for the roadmap.
 
 ## Repository layout
 
@@ -85,13 +85,32 @@ With the Supabase stack running (`pnpm db:start`) and the web app running (`pnpm
 
 To inspect auth emails locally, open Mailpit at http://127.0.0.1:54324.
 
-## Current status (end of Phase 2)
+## Current status (end of Phase 3)
 
-Works today: brand landing page; email/password **auth** with route protection (`proxy.ts`) and
-logout; signup auto-provisions an org + owner membership; auth-gated **dashboard** with live
-org-scoped counts; **project** create/list/detail; **settings**. Full DB schema with **Row Level
-Security** enforcing tenant isolation (proven at the DB level and via E2E). Processor `/health`
-service. Unit tests + a Playwright E2E covering signup → dashboard → create project.
+Works today: everything from Phase 2 (auth, RLS tenant isolation, project CRUD, dashboard), plus:
 
-Not yet built (later phases): document uploads & parsing, register import, the AI pipeline,
-evidence-linked review dashboard, and reports. See `docs/product-decisions.md`.
+- **Document manager** at `/projects/[id]/documents` — upload PDF/EML/TXT to **private** storage
+  with server-side size, quota, content-sniffing validation, and sha256 dedupe.
+- **Parsing pipeline** (Python processor): PDF via PyMuPDF (page-numbered chunks; scanned PDFs
+  flagged `OCR required`), safe EML (headers + stripped body), TXT. Parsed passages are stored as
+  source-linked `document_chunks`.
+- **Change-order register import wizard** — upload a CSV, auto-detect column mapping, adjust it,
+  preview normalized rows, and import to `register_entries` (originals + per-row errors preserved).
+- Delete documents (storage + chunks cascade). Every action is written to the audit log.
+
+Tests: processor pytest (16, incl. parsers + endpoints), web Vitest (3), Playwright E2E (5)
+covering signup → project → **upload+parse** and **register import**.
+
+Not yet built (later phases): the AI extraction/reconciliation pipeline, evidence-linked review
+dashboard, and reports. See `docs/product-decisions.md`.
+
+## Troubleshooting
+
+**Docker keeps stopping / "fetch failed" / `ECONNREFUSED` to Supabase:** Docker Desktop's
+auto-pause was set to 30s on this machine, which paused the VM (and Supabase/processor) during
+idle gaps. It's now disabled (`autoPauseEnabled: false` in Docker Desktop settings). If it
+recurs, check Docker Desktop → Settings → Resources → "Resource Saver", then
+`pnpm exec supabase start` and `docker compose up -d redis processor`.
+
+**Processor must be running** for uploads/imports: `docker compose up -d redis processor`
+(health at http://127.0.0.1:8000/health).

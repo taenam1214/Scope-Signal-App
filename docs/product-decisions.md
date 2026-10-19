@@ -2,6 +2,29 @@
 
 A running log of decisions and their rationale. Newest first.
 
+## Phase 3 — File ingestion
+
+- **Processor is a stateless parsing microservice.** It receives file bytes + type over HTTP
+  (protected by `WORKER_AUTH_SECRET`) and returns structured chunks / normalized register rows.
+  It holds no DB or storage credentials; the web app persists results under the user's RLS
+  session. This keeps the service-role surface minimal and the parser trivially unit-testable.
+  (The heavier, durable **audit** job will use RQ in Phase 4.)
+- **Parse-on-upload is synchronous** via the processor endpoint. Single-file parsing is fast; the
+  blueprint's "run outside the request" concern applies to multi-file AI analysis (Phase 4), not
+  single-document parsing.
+- **Private storage, path = `{org}/{project}/{sha}-{name}`.** Storage RLS reuses `is_org_member`
+  on the first path segment, so storage access is tenant-isolated like the tables. Uploads use the
+  user session (anon key), not the service role.
+- **Validation beyond extension**: PDF checked for `%PDF-` magic; eml/csv/txt required to be
+  non-binary. Size + per-project quota enforced server-side; sha256 dedupe per project.
+- **Scanned PDFs → `ocr_required`**, never fabricated text. OCR deferred behind a future flag.
+- **CSV register import is a wizard**: detect mapping → user adjusts → preview → import. Re-import
+  replaces the project's register (idempotent). Original cell values + per-row parse errors are
+  kept in `normalized_metadata`.
+- **Docker Desktop auto-pause disabled** (`autoPauseEnabled: false`, timeout 30s → 86400s). The
+  30s auto-pause was stopping Supabase/processor mid-work. Machine-level change, documented in the
+  README troubleshooting section.
+
 ## Phase 2 — Auth & data model
 
 - **Email + password auth** (not magic link) via `@supabase/ssr`. Deterministic to test, no email
