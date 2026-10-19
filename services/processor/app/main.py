@@ -1,17 +1,33 @@
 """FastAPI entrypoint for the ScopeSignal processor service.
 
-Phase 1: exposes health/readiness only. Audit-enqueue endpoints and the RQ
-worker land in Phase 4.
+Phase 3: stateless parsing endpoints. The web app uploads a file to private
+storage and persists results itself (under the user's RLS session); this service
+only transforms bytes into structured chunks / normalized register rows, so it
+needs no database or storage credentials. Endpoints are protected by a shared
+secret (WORKER_AUTH_SECRET).
+
+Audit-enqueue endpoints and the RQ worker land in Phase 4.
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import json
+
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 
 from app import __version__
 from app.config import get_settings
+from app.parsers import parse_document, parse_register_csv
+from app.schemas import DocumentParseResult, RegisterParseResult
 
 app = FastAPI(title="ScopeSignal Processor", version=__version__)
+
+
+def require_worker_auth(x_worker_auth: str = Header(default="")) -> None:
+    """Reject calls without the shared worker secret."""
+    secret = get_settings().worker_auth_secret
+    if not secret or x_worker_auth != secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 @app.get("/health")
@@ -24,3 +40,27 @@ def health() -> dict[str, str]:
         "app_env": settings.app_env,
         "ai_mode": settings.ai_mode,
     }
+
+
+@app.post("/parse/document", response_model=DocumentParseResult)
+async def parse_document_endpoint(
+    file_type: str = Form(...),
+    file: UploadFile = File(...),
+    _auth: None = Depends(require_worker_auth),
+) -> DocumentParseResult:
+    data = await file.read()
+    return parse_document(file_type, data)
+
+
+@app.post("/parse/register", response_model=RegisterParseResult)
+async def parse_register_endpoint(
+    file: UploadFile = File(...),
+    mapping: str | None = Form(default=None),
+    _auth: None = Depends(require_worker_auth),
+) -> RegisterParseResult:
+    data = await file.read()
+    try:
+        parsed_mapping = json.loads(mapping) if mapping else None
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="mapping must be valid JSON")
+    return parse_register_csv(data, parsed_mapping)

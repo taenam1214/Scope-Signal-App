@@ -5,6 +5,7 @@ description = "ScopeSignal document processing & AI analysis worker"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
+    "python-multipart>=0.0.12",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",
