@@ -22,6 +22,7 @@
     "db:reset": "supabase db reset"
   },
   "devDependencies": {
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "supabase": "^2.121.0"
   }
 }
