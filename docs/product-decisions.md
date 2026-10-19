@@ -2,6 +2,23 @@
 
 A running log of decisions and their rationale. Newest first.
 
+## Phase 2 — Auth & data model
+
+- **Email + password auth** (not magic link) via `@supabase/ssr`. Deterministic to test, no email
+  round-trip. Local Supabase has confirmations disabled.
+- **One org per user in v0.1.** A signup trigger (`handle_new_user`) auto-creates an organization
+  (named from `organization_name` signup metadata, else derived from email) and an `owner`
+  membership. `requireMembership()` reads the user's first org.
+- **RLS via a `SECURITY DEFINER` `is_org_member(org)` function.** Every tenant table policy calls
+  it; the definer context avoids recursion on `organization_members`. A client-submitted
+  `organization_id` is never trusted. Cross-tenant isolation is proven at the DB level and by E2E.
+- **Enums as Postgres enum types**, mirrored by `packages/shared` TS consts. Kept in sync by hand.
+- **Route protection in `proxy.ts`** (Next 16 renamed the `middleware` convention to `proxy`).
+  Public paths: `/`, `/login`, `/auth`; everything else redirects unauthenticated users to
+  `/login?redirectTo=…` (relative-path-only redirect to avoid open redirects).
+- **Deleting a user orphans their org** (member rows cascade from `auth.users`, the org row does
+  not). Acceptable for v0.1; orphan orgs are RLS-invisible. Revisit if we add account deletion.
+
 ## Phase 1 — Repository & environment
 
 - **Monorepo at repo root** (not nested `scopesignal/`). The repo is already

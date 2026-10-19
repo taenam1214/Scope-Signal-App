@@ -7,8 +7,9 @@ AI-assisted scope-change reconciliation for US commercial electrical subcontract
 > support each finding. ScopeSignal does not decide contractual entitlement, guarantee payment, or
 > auto-submit change orders. Every finding links to real source evidence.
 
-This repo is a monorepo built in phases. **Phase 1 (repo & environment) is complete.** See
-`docs/architecture.md` for the full design and `docs/product-decisions.md` for the roadmap.
+This repo is a monorepo built in phases. **Phases 1–2 complete** (repo & environment; auth +
+data model). See `docs/architecture.md` for the full design and `docs/product-decisions.md` for
+the roadmap.
 
 ## Repository layout
 
@@ -72,11 +73,25 @@ docker build -t scopesignal-processor:dev services/processor
 docker run --rm scopesignal-processor:dev pytest -q
 ```
 
-## Current status (end of Phase 1)
+## Demo / local auth procedure
 
-Works today: web app boots with the ScopeSignal brand system (landing + placeholder dashboard),
-unit + E2E smoke tests, processor FastAPI `/health` with passing pytest, Redis + worker via
-Compose, Supabase scaffold, and project docs.
+With the Supabase stack running (`pnpm db:start`) and the web app running (`pnpm dev`):
 
-Not yet built (later phases): auth, database schema/RLS, uploads & parsing, the AI pipeline,
-review dashboard, and reports. See `docs/product-decisions.md`.
+1. Open http://localhost:3000 and click **Open app** (or go to `/login`).
+2. Click **Sign up**, enter an organization name, email, and password (≥ 6 chars). Local Supabase
+   has email confirmations disabled, so you're signed straight in. A signup trigger provisions
+   your organization and owner membership automatically.
+3. You land on `/dashboard`. Create a project via **New Project**.
+
+To inspect auth emails locally, open Mailpit at http://127.0.0.1:54324.
+
+## Current status (end of Phase 2)
+
+Works today: brand landing page; email/password **auth** with route protection (`proxy.ts`) and
+logout; signup auto-provisions an org + owner membership; auth-gated **dashboard** with live
+org-scoped counts; **project** create/list/detail; **settings**. Full DB schema with **Row Level
+Security** enforcing tenant isolation (proven at the DB level and via E2E). Processor `/health`
+service. Unit tests + a Playwright E2E covering signup → dashboard → create project.
+
+Not yet built (later phases): document uploads & parsing, register import, the AI pipeline,
+evidence-linked review dashboard, and reports. See `docs/product-decisions.md`.
