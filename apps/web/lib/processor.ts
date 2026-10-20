@@ -77,3 +77,18 @@ export async function parseRegister(
   if (mapping) form.append('mapping', JSON.stringify(mapping));
   return postForm<RegisterParseResult>('/parse/register', form);
 }
+
+/** Enqueue a durable audit job on the processor; the RQ worker runs it. */
+export async function enqueueAudit(auditRunId: string): Promise<{ job_id: string }> {
+  const resp = await fetch(`${PROCESSOR_URL}/audits/enqueue`, {
+    method: 'POST',
+    headers: {
+      'X-Worker-Auth': WORKER_AUTH_SECRET,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ audit_run_id: auditRunId }),
+    cache: 'no-store',
+  });
+  if (!resp.ok) throw new Error(`Processor enqueue failed (${resp.status})`);
+  return (await resp.json()) as { job_id: string };
+}
