@@ -2,6 +2,30 @@
 
 A running log of decisions and their rationale. Newest first.
 
+## Phase 4 — AI analysis & reconciliation
+
+- **Pluggable extraction adapter** chosen by `AI_MODE`. `mock` is a deterministic keyword/heuristic
+  extractor (offline, reproducible, drives tests + eval); `live` uses OpenAI structured outputs.
+  Model id is configurable via `OPENAI_MODEL`, never hardcoded.
+- **Pipeline is pure** (`app/pipeline/`): extract → validate citations → cluster → reconcile →
+  findings, operating on Pydantic models with no DB/network. The worker is a thin DB wrapper around
+  it, so correctness is unit-tested without infrastructure.
+- **Citation validation is mandatory**: candidates citing unknown chunk ids, or excerpts not found
+  verbatim in the cited chunk, are rejected. Prevents hallucinated evidence (blueprint H).
+- **Durable audits via RQ**, not a DB polling loop. Web creates the `audit_runs` row then calls the
+  processor `POST /audits/enqueue`; the processor enqueues the Python job (native RQ) and the
+  `rq worker audits` container runs it. The worker connects to Postgres via psycopg over
+  `host.docker.internal:54322` (Docker Desktop) and scopes all queries by the audit's org/project.
+- **Idempotent re-runs**: a run deletes its prior `candidate_events` (cascades evidence/matches)
+  before writing. Findings persist atomically; `pipeline_version` + `model_identifier` are stored.
+- **Reconciliation is two-stage**: explicit-reference match → `matched`; else conservative token
+  similarity (Jaccard ≥ 0.2 and ≥ 2 shared tokens) → `possible_match`; else `no_match_found`.
+  "No match found" means *not in the supplied register*, nothing more (stated in the UI).
+- **Clustering by explicit reference only** (e.g. RFI-042) — descriptions are never merged on
+  similarity alone, avoiding incorrectly collapsing distinct events.
+- **Synthetic dataset defined in code** (`app/eval/synthetic.py`) and dumped to fixture files for
+  upload demos. Ground-truth labels live beside it but are never fed to the extractor.
+
 ## Phase 3 — File ingestion
 
 - **Processor is a stateless parsing microservice.** It receives file bytes + type over HTTP
