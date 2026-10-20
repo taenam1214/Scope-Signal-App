@@ -17,6 +17,7 @@
     "test:e2e": "pnpm --filter web test:e2e",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
+    "eval": "docker run --rm -v \"$PWD/services/processor:/app\" scopesignal-processor:dev python -m app.eval.run",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset"

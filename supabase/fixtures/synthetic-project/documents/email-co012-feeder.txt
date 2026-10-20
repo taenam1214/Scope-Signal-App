@@ -1,0 +1,3 @@
+Subject: CO-012 feeder upgrade
+
+CO-012 covers the upgraded feeder to the main switchgear. Please proceed with the revised feeder sizing per the approved change.

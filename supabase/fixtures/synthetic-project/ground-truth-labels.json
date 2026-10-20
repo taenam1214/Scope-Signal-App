@@ -1,0 +1,64 @@
+{
+  "expected_omissions": [
+    {
+      "id": "omission_conduit",
+      "contains": [
+        "conduit"
+      ],
+      "ref": "RFI-042"
+    },
+    {
+      "id": "omission_panel_relocation",
+      "contains": [
+        "relocat",
+        "lp-3",
+        "panel"
+      ]
+    },
+    {
+      "id": "omission_server_room",
+      "contains": [
+        "server room",
+        "dedicated circuit"
+      ]
+    }
+  ],
+  "expected_recorded": [
+    {
+      "id": "co010",
+      "ref": "CO-010"
+    },
+    {
+      "id": "co012",
+      "ref": "CO-012"
+    },
+    {
+      "id": "co015",
+      "ref": "CO-015"
+    }
+  ],
+  "false_positives": [
+    {
+      "id": "inscope_conduit",
+      "contains": [
+        "e-101",
+        "original scope"
+      ]
+    },
+    {
+      "id": "clarification_panel",
+      "contains": [
+        "clarification"
+      ]
+    }
+  ],
+  "ambiguous": [
+    {
+      "id": "verbal_extra_pulls",
+      "contains": [
+        "extra",
+        "pull"
+      ]
+    }
+  ]
+}

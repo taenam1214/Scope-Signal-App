@@ -1,0 +1,1 @@
+RFI-042: The equipment location on level 2 has moved. Response: Reroute the conduit to the revised equipment location; additional conduit will be required to reach the new position.

@@ -1,0 +1,1 @@
+RFI-041: Confirm the breaker rating for the existing panel HP-1. Response: Existing 20A breakers are acceptable as specified. No change.
