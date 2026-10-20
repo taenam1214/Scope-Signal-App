@@ -14,11 +14,13 @@ from __future__ import annotations
 import json
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app import __version__
 from app.config import get_settings
 from app.parsers import parse_document, parse_register_csv
 from app.schemas import DocumentParseResult, RegisterParseResult
+from app.worker.queue import enqueue_audit
 
 app = FastAPI(title="ScopeSignal Processor", version=__version__)
 
@@ -64,3 +66,21 @@ async def parse_register_endpoint(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="mapping must be valid JSON")
     return parse_register_csv(data, parsed_mapping)
+
+
+class EnqueueAuditRequest(BaseModel):
+    audit_run_id: str
+
+
+class EnqueueAuditResponse(BaseModel):
+    job_id: str
+
+
+@app.post("/audits/enqueue", response_model=EnqueueAuditResponse)
+def enqueue_audit_endpoint(
+    body: EnqueueAuditRequest,
+    _auth: None = Depends(require_worker_auth),
+) -> EnqueueAuditResponse:
+    """Enqueue a durable audit job; the RQ worker processes it asynchronously."""
+    job_id = enqueue_audit(body.audit_run_id)
+    return EnqueueAuditResponse(job_id=job_id)

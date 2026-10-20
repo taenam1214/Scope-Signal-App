@@ -34,7 +34,11 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
-    # RQ worker. The `audits` queue is produced in Phase 4; safe to run now (idles).
+      # Reach the Supabase Postgres published on the host (Docker Desktop).
+      DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # RQ worker processes durable audit jobs from the `audits` queue.
     command: ["rq", "worker", "--url", "redis://redis:6379/0", "audits"]
     depends_on:
       redis:
