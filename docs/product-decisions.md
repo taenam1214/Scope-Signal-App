@@ -2,6 +2,20 @@
 
 A running log of decisions and their rationale. Newest first.
 
+## Phase 5 — Review dashboard
+
+- **Review happens in a client workspace** (`review-workspace.tsx`) that receives findings
+  server-rendered from the audit page; the server stays the source of truth and a `saveReview`
+  server action persists each decision (RLS-scoped, re-verifies the candidate belongs to the
+  project). Local state updates optimistically so the list/badges reflect a save without a reload.
+- **Six outcomes, color-independent**: each outcome has a Lucide icon + label so decisions are
+  distinguishable without relying on color (accessibility). Amber is reserved for "needs attention".
+- **Every decision records actor + timestamp** (`reviewed_by`, `reviewed_at`) and an `audit_logs`
+  entry; decisions are revisable.
+- **Reviewer config kept in the web** (`review-config.ts`), not `packages/shared` — labels and
+  descriptions are UI concerns; the raw enum still lives in shared and the DB enum.
+- **Reports link is a placeholder** until Phase 6.
+
 ## Phase 4 — AI analysis & reconciliation
 
 - **Pluggable extraction adapter** chosen by `AI_MODE`. `mock` is a deterministic keyword/heuristic

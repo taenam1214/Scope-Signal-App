@@ -7,9 +7,9 @@ AI-assisted scope-change reconciliation for US commercial electrical subcontract
 > support each finding. ScopeSignal does not decide contractual entitlement, guarantee payment, or
 > auto-submit change orders. Every finding links to real source evidence.
 
-This repo is a monorepo built in phases. **Phases 1–4 complete** (repo & environment; auth +
-data model; file ingestion; AI analysis & reconciliation). See `docs/architecture.md` for the
-full design and `docs/product-decisions.md` for the roadmap.
+This repo is a monorepo built in phases. **Phases 1–5 complete** (repo & environment; auth +
+data model; file ingestion; AI analysis & reconciliation; review dashboard). See
+`docs/architecture.md` for the full design and `docs/product-decisions.md` for the roadmap.
 
 ## Repository layout
 
@@ -87,6 +87,23 @@ With the Supabase stack running (`pnpm db:start`) and the web app running (`pnpm
 3. You land on `/dashboard`. Create a project via **New Project**.
 
 To inspect auth emails locally, open Mailpit at http://127.0.0.1:54324.
+
+## Current status (end of Phase 5)
+
+Everything from Phases 2–4, plus the reviewer workflow:
+
+- **Three-pane review interface** on the audit results page — left: searchable, status-filterable
+  findings list; center: candidate summary, source evidence excerpts, and register comparison;
+  right: the decision panel.
+- **Six reviewer outcomes** (Needs Review, Confirmed Unrecorded, Already Recorded, Not Additional
+  Scope, Duplicate, Insufficient Evidence) distinguishable by icon + label (not color alone), plus
+  reviewer notes. Decisions are revisable and record the acting user + timestamp (and an audit-log
+  entry). The dashboard "Findings requiring review" count reflects them live.
+
+Tests: processor pytest (27), web Vitest (3), Playwright E2E (6) covering signup → upload+parse →
+register import → run audit → source-linked findings → **record a review decision (persisted)**.
+
+Not yet built: **reports** (PDF/CSV export) and final hardening. See `docs/product-decisions.md`.
 
 ## Current status (end of Phase 4)
 
