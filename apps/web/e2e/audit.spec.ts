@@ -61,11 +61,33 @@ test('run an audit and see source-linked findings', async ({ page }) => {
   await page.getByRole('link', { name: 'View audits' }).click();
   await page.getByRole('button', { name: 'Start Audit' }).click();
 
-  // The detail page auto-refreshes; wait for completion and findings.
+  // The detail page auto-refreshes; wait for completion and the findings list.
   await expect(page.getByRole('heading', { name: 'Audit results' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /RFI-042/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: /RFI-042/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: /CO-010/ })).toBeVisible();
+
+  // Conduit finding: no register match + source evidence.
+  await page.getByRole('button', { name: /RFI-042/ }).click();
+  await expect(page.getByRole('heading', { name: /RFI-042/ })).toBeVisible();
   await expect(page.getByText('No match found')).toBeVisible();
-  await expect(page.getByText('Matched in register')).toBeVisible();
-  // Evidence excerpt is shown.
   await expect(page.getByText(/additional conduit routing/)).toBeVisible();
+
+  // Recorded CO-010 finding: matched in register.
+  await page.getByRole('button', { name: /CO-010/ }).click();
+  await expect(page.getByText('Matched in register')).toBeVisible();
+
+  // --- Phase 5: record a review decision on the conduit finding ---
+  await page.getByRole('button', { name: /RFI-042/ }).click();
+  await page.getByRole('radio', { name: /Confirmed Unrecorded/ }).check();
+  await page.getByPlaceholder('Optional context for this decision…').fill('No CO on file; follow up.');
+  await page.getByRole('button', { name: 'Save decision' }).click();
+
+  await expect(page.getByText(/Saved ·/)).toBeVisible();
+  // The left-list item now reflects the new status, and the summary chip appears.
+  await expect(page.getByRole('button', { name: /RFI-042[\s\S]*Confirmed Unrecorded/ })).toBeVisible();
+
+  // Decision persists across reload (stored with reviewer + timestamp).
+  await page.reload();
+  await page.getByRole('button', { name: /RFI-042/ }).click();
+  await expect(page.getByText(/Last reviewed/)).toBeVisible();
 });
