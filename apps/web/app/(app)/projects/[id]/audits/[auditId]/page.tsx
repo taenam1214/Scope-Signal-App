@@ -2,13 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireMembership } from '@/lib/auth';
 import { AutoRefresh } from '../auto-refresh';
-
-const RECON_BADGE: Record<string, { label: string; className: string }> = {
-  matched: { label: 'Matched in register', className: 'bg-emerald-100 text-emerald-800' },
-  possible_match: { label: 'Possible match', className: 'bg-amber-100 text-amber-900' },
-  no_match_found: { label: 'No match found', className: 'bg-amber-100 text-amber-900' },
-  insufficient_data: { label: 'Insufficient data', className: 'bg-slate-100 text-slate-700' },
-};
+import { REVIEW_BY_VALUE, type ReviewStatus } from '../review-config';
+import { ReviewWorkspace, type Finding } from '../review-workspace';
 
 export default async function AuditDetailPage({
   params,
@@ -29,7 +24,7 @@ export default async function AuditDetailPage({
     .from('candidate_events')
     .select(
       `id, normalized_title, description, event_date, detected_parties, potential_change_type,
-       extraction_confidence, reconciliation_status, review_status,
+       extraction_confidence, reconciliation_status, review_status, review_notes, reviewed_at,
        candidate_evidence ( exact_excerpt, source_locator, evidence_role, documents ( original_filename ) ),
        candidate_register_matches ( matching_method, match_score, explanation,
          register_entries ( external_reference, title ) )`,
@@ -37,8 +32,54 @@ export default async function AuditDetailPage({
     .eq('audit_run_id', auditId)
     .order('extraction_confidence', { ascending: false });
 
-  const findings = candidates ?? [];
   const inProgress = run.status === 'queued' || run.status === 'processing';
+
+  const findings: Finding[] = (candidates ?? []).map((c) => {
+    const evidenceRows = (c.candidate_evidence ?? []) as unknown as Array<{
+      exact_excerpt: string;
+      source_locator: string | null;
+      evidence_role: string;
+      documents: { original_filename: string } | null;
+    }>;
+    const matchRows = (c.candidate_register_matches ?? []) as unknown as Array<{
+      matching_method: string;
+      match_score: number;
+      explanation: string;
+      register_entries: { external_reference: string | null; title: string | null } | null;
+    }>;
+    return {
+      id: c.id,
+      normalized_title: c.normalized_title,
+      description: c.description,
+      event_date: c.event_date,
+      detected_parties: c.detected_parties ?? [],
+      potential_change_type: c.potential_change_type,
+      extraction_confidence: Number(c.extraction_confidence ?? 0),
+      reconciliation_status: c.reconciliation_status,
+      review_status: c.review_status as ReviewStatus,
+      review_notes: c.review_notes,
+      reviewed_at: c.reviewed_at,
+      evidence: evidenceRows.map((e) => ({
+        exact_excerpt: e.exact_excerpt,
+        source_locator: e.source_locator,
+        evidence_role: e.evidence_role,
+        filename: e.documents?.original_filename ?? 'document',
+      })),
+      matches: matchRows.map((m) => ({
+        external_reference: m.register_entries?.external_reference ?? null,
+        title: m.register_entries?.title ?? null,
+        matching_method: m.matching_method,
+        match_score: m.match_score,
+        explanation: m.explanation,
+      })),
+    };
+  });
+
+  // Review-status summary counts.
+  const counts = findings.reduce<Record<string, number>>((acc, f) => {
+    acc[f.review_status] = (acc[f.review_status] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div>
@@ -46,12 +87,24 @@ export default async function AuditDetailPage({
       <Link href={`/projects/${id}/audits`} className="text-sm text-signal hover:underline">
         ← Audits
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-navy">Audit results</h1>
-      <p className="mt-1 text-sm text-ink">
-        Status: <span className="font-medium text-navy">{run.status}</span>
-        {run.model_identifier ? ` · ${run.model_identifier}` : ''}
-        {run.pipeline_version ? ` · ${run.pipeline_version}` : ''}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-navy">Audit results</h1>
+          <p className="mt-1 text-sm text-ink">
+            Status: <span className="font-medium text-navy">{run.status}</span>
+            {run.model_identifier ? ` · ${run.model_identifier}` : ''}
+            {run.pipeline_version ? ` · ${run.pipeline_version}` : ''}
+          </p>
+        </div>
+        {run.status === 'completed' && findings.length > 0 && (
+          <Link
+            href={`/projects/${id}/reports`}
+            className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-navy hover:bg-surface"
+          >
+            Export report
+          </Link>
+        )}
+      </div>
 
       {inProgress && (
         <div className="mt-6 rounded-lg border border-line bg-white p-8 text-center text-ink">
@@ -73,84 +126,26 @@ export default async function AuditDetailPage({
 
       {run.status === 'completed' && findings.length > 0 && (
         <>
-          <p className="mt-6 text-sm text-ink">
-            {findings.length} potential finding{findings.length === 1 ? '' : 's'}. Review decisions
-            and notes are added in the review interface (next phase). Each finding below is backed by
-            source evidence.
-          </p>
-          <ul className="mt-4 space-y-4">
-            {findings.map((f) => {
-              const badge = RECON_BADGE[f.reconciliation_status] ?? RECON_BADGE.insufficient_data;
-              const evidence = (f.candidate_evidence ?? []) as unknown as Array<{
-                exact_excerpt: string;
-                source_locator: string | null;
-                evidence_role: string;
-                documents: { original_filename: string } | null;
-              }>;
-              const matches = (f.candidate_register_matches ?? []) as unknown as Array<{
-                matching_method: string;
-                match_score: number;
-                explanation: string;
-                register_entries: { external_reference: string | null; title: string | null } | null;
-              }>;
+          <div className="mt-4 flex flex-wrap gap-2">
+            {Object.entries(counts).map(([status, n]) => {
+              const opt = REVIEW_BY_VALUE[status as ReviewStatus];
               return (
-                <li key={f.id} className="rounded-lg border border-line bg-white p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="font-semibold text-navy">{f.normalized_title}</h2>
-                      <p className="mt-0.5 text-xs text-ink">
-                        {f.potential_change_type?.replace(/_/g, ' ')}
-                        {f.event_date ? ` · ${f.event_date}` : ''}
-                        {f.detected_parties?.length ? ` · ${f.detected_parties.join(', ')}` : ''}
-                        {` · confidence ${(Number(f.extraction_confidence) * 100).toFixed(0)}%`}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}>
-                      {badge.label}
-                    </span>
-                  </div>
-
-                  <div className="mt-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink">Evidence</p>
-                    <ul className="mt-1 space-y-2">
-                      {evidence.map((e, i) => (
-                        <li key={i} className="border-l-2 border-line pl-3">
-                          <p className="text-sm text-ink">“{e.exact_excerpt}”</p>
-                          <p className="mt-0.5 text-xs text-ink/70">
-                            {e.documents?.original_filename ?? 'document'}
-                            {e.source_locator ? ` · ${e.source_locator}` : ''}
-                            {e.evidence_role === 'primary' ? ' · primary' : ''}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-ink">
-                      Register comparison
-                    </p>
-                    {matches.length === 0 ? (
-                      <p className="mt-1 text-sm text-ink">
-                        No corresponding entry identified in the supplied register. (This does not
-                        establish the event was undocumented elsewhere.)
-                      </p>
-                    ) : (
-                      <ul className="mt-1 space-y-1">
-                        {matches.map((m, i) => (
-                          <li key={i} className="text-sm text-ink">
-                            {m.register_entries?.external_reference ?? '—'}
-                            {m.register_entries?.title ? ` · ${m.register_entries.title}` : ''} —{' '}
-                            {m.explanation}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </li>
+                <span
+                  key={status}
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${opt?.badge ?? 'bg-slate-100 text-slate-700'}`}
+                >
+                  {opt?.label ?? status}: {n}
+                </span>
               );
             })}
-          </ul>
+          </div>
+          <p className="mt-3 text-sm text-ink">
+            {findings.length} finding{findings.length === 1 ? '' : 's'}. Select one to review its
+            evidence and record a decision. Nothing is confirmed without your review.
+          </p>
+          <div className="mt-4">
+            <ReviewWorkspace projectId={id} findings={findings} />
+          </div>
         </>
       )}
     </div>

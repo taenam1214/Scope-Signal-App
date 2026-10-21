@@ -5,6 +5,76 @@ import { revalidatePath } from 'next/cache';
 import { requireMembership } from '@/lib/auth';
 import { enqueueAudit } from '@/lib/processor';
 
+// Mirrors REVIEW_STATUSES in packages/shared and the review_status enum.
+const REVIEW_STATUSES = [
+  'needs_review',
+  'confirmed_unrecorded',
+  'already_recorded',
+  'not_additional_scope',
+  'duplicate',
+  'insufficient_evidence',
+] as const;
+type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
+export type SaveReviewResult =
+  | { ok: true; reviewedAt: string; reviewerEmail: string }
+  | { ok: false; error: string };
+
+export async function saveReview(input: {
+  projectId: string;
+  candidateId: string;
+  reviewStatus: ReviewStatus;
+  notes: string;
+}): Promise<SaveReviewResult> {
+  if (!REVIEW_STATUSES.includes(input.reviewStatus)) {
+    return { ok: false, error: 'Invalid review status.' };
+  }
+  if (input.notes.length > 5000) {
+    return { ok: false, error: 'Notes are too long.' };
+  }
+
+  const { membership, userId, supabase } = await requireMembership();
+
+  // RLS scopes the update to the user's org; also confirm the candidate belongs
+  // to the named project before writing.
+  const { data: candidate } = await supabase
+    .from('candidate_events')
+    .select('id, project_id')
+    .eq('id', input.candidateId)
+    .maybeSingle();
+  if (!candidate || candidate.project_id !== input.projectId) {
+    return { ok: false, error: 'Finding not found.' };
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from('candidate_events')
+    .update({
+      review_status: input.reviewStatus,
+      review_notes: input.notes || null,
+      reviewed_by: userId,
+      reviewed_at: reviewedAt,
+    })
+    .eq('id', input.candidateId);
+  if (updateError) return { ok: false, error: 'Could not save your decision.' };
+
+  await supabase.from('audit_logs').insert({
+    organization_id: membership.organizationId,
+    actor_user_id: userId,
+    action: 'finding.reviewed',
+    resource_type: 'candidate_event',
+    resource_id: input.candidateId,
+    metadata: { review_status: input.reviewStatus },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  revalidatePath(`/projects/${input.projectId}/audits`);
+  return { ok: true, reviewedAt, reviewerEmail: user?.email ?? 'you' };
+}
+
 export type StartAuditState = { error?: string } | undefined;
 
 export async function startAudit(
