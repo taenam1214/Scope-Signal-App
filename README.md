@@ -7,9 +7,9 @@ AI-assisted scope-change reconciliation for US commercial electrical subcontract
 > support each finding. ScopeSignal does not decide contractual entitlement, guarantee payment, or
 > auto-submit change orders. Every finding links to real source evidence.
 
-This repo is a monorepo built in phases. **Phases 1–5 complete** (repo & environment; auth +
-data model; file ingestion; AI analysis & reconciliation; review dashboard). See
-`docs/architecture.md` for the full design and `docs/product-decisions.md` for the roadmap.
+This repo is a monorepo built in phases. **All 6 phases complete** — the MVP acceptance workflow
+runs end to end. See `docs/architecture.md` for the full design and `docs/product-decisions.md`
+for the decision log.
 
 ## Repository layout
 
@@ -87,6 +87,35 @@ With the Supabase stack running (`pnpm db:start`) and the web app running (`pnpm
 3. You land on `/dashboard`. Create a project via **New Project**.
 
 To inspect auth emails locally, open Mailpit at http://127.0.0.1:54324.
+
+## MVP acceptance — end-to-end workflow
+
+All of the following work and are covered by automated tests:
+
+1. Sign in ✓ · 2. Create organization/project ✓ · 3. Upload synthetic documents ✓ ·
+4. Import the change-order register ✓ · 5. Start an audit ✓ · 6. A background worker processes it ✓ ·
+7. Source-linked candidate events ✓ · 8. Register reconciliation ✓ · 9. Open original evidence ✓ ·
+10. Record a review decision ✓ · 11. Export a PDF (and CSV) report ✓ · 12. A second org cannot
+access the first org's records ✓ · 13. All automated tests pass ✓.
+
+Guardrails held: no dead buttons, no fake API calls, no fabricated analysis or metrics, no
+hardcoded success states, no credentials committed, every finding links to real source evidence,
+and no change order is ever created or submitted.
+
+## Current status (end of Phase 6)
+
+The reviewer workflow (Phase 5) plus:
+
+- **Report export**: per-audit **PDF** (ReportLab, in the processor — branded header, project
+  identification, analysis scope, findings table, evidence appendix with citations, reviewer
+  decisions/notes, and a prominent limitations statement) and machine-readable **CSV**, served via
+  authenticated download routes under `/api/projects/[id]/audits/[auditId]/{pdf,csv}`.
+- **Hardening**: in-memory **rate limiting** on upload and audit-start actions; **cross-tenant
+  isolation** verified by an authorization E2E (a second org gets 404 on another org's project and
+  report routes); deployment runbook in `docs/deployment.md`.
+
+Tests: processor pytest (**31**), web Vitest (3), Playwright E2E (**7**) covering the full
+acceptance workflow including report export and cross-tenant denial.
 
 ## Current status (end of Phase 5)
 

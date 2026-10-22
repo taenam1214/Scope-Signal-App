@@ -1,6 +1,15 @@
 # ScopeSignal — Security Notes
 
-Status by phase. Items marked (Phase N) are planned, not yet implemented.
+**Implemented in the MVP:** email/password auth with route protection; organization-membership
+authorization; **Row Level Security** on all tenant tables (+ private Storage policies) proven by
+DB tests and a cross-tenant E2E; private-by-default file storage under tenant/project paths;
+content/MIME validation + size/quota limits + sha256 dedupe; strict Pydantic schemas with
+citation validation (hallucinated ids/excerpts rejected); documents treated strictly as data;
+server-only secrets (service role + OpenAI key never shipped to the browser); in-memory rate
+limiting on upload/audit actions; an audit trail (`audit_logs`); safe HTML handling (stripped, not
+rendered). Items below marked (Phase N / future) note where something is partial or deferred.
+
+Status by phase. Items marked (future) are not yet implemented.
 
 ## Tenancy & authorization
 

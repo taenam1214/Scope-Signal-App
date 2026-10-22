@@ -37,3 +37,12 @@ Keep separate dev and production configurations. Never deploy with development b
 
 See `.env.example`. Server-only: `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `OPENAI_API_KEY`,
 `WORKER_AUTH_SECRET`.
+
+## Production notes
+
+- The **worker** (`rq worker audits`) must run as its own container alongside the API; set its
+  `DATABASE_URL` to the hosted Supabase Postgres connection string (not `host.docker.internal`).
+- Rate limiting is **in-memory / per-process**. If you run more than one web instance, move it to
+  managed Redis so limits are shared.
+- Set `AI_MODE=live` + `OPENAI_API_KEY` for real extraction; leave `mock` for a no-API demo.
+- Do not deploy with development bypasses; keep the service-role key and `OPENAI_API_KEY` server-side only.

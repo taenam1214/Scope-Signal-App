@@ -2,6 +2,19 @@
 
 A running log of decisions and their rationale. Newest first.
 
+## Phase 6 — Reports & hardening
+
+- **PDF rendered in the processor** (ReportLab), not the browser: the web assembles the report
+  payload under RLS and POSTs it to `/reports/pdf`; the processor stays stateless. **CSV is built
+  in the web** (trivial, no round trip). Both download via authenticated route handlers that
+  re-check the session and RLS (`getReportData` returns null → 404 for foreign projects).
+- **Branded PDF without an external logo asset** — a drawn navy header band + wordmark (none was
+  supplied in the repo). Includes the required limitations statement in an amber callout.
+- **Rate limiting is in-memory / per-process** — sufficient for a single web instance / MVP;
+  documented to move to Redis for multi-instance. Applied to upload and audit-start actions.
+- **Cross-tenant isolation is asserted by an E2E** (org B → 404 on org A's project and report
+  routes), complementing the Phase 2 DB-level RLS proof.
+
 ## Phase 5 — Review dashboard
 
 - **Review happens in a client workspace** (`review-workspace.tsx`) that receives findings
