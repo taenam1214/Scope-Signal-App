@@ -90,4 +90,19 @@ test('run an audit and see source-linked findings', async ({ page }) => {
   await page.reload();
   await page.getByRole('button', { name: /RFI-042/ }).click();
   await expect(page.getByText(/Last reviewed/)).toBeVisible();
+
+  // --- Phase 6: export the report (PDF + CSV) ---
+  const m = new URL(page.url()).pathname.match(/projects\/([^/]+)\/audits\/([^/]+)/);
+  const [, pid, aid] = m!;
+
+  const pdf = await page.request.get(`/api/projects/${pid}/audits/${aid}/pdf`);
+  expect(pdf.ok()).toBeTruthy();
+  expect(pdf.headers()['content-type']).toContain('application/pdf');
+  expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
+
+  const csv = await page.request.get(`/api/projects/${pid}/audits/${aid}/csv`);
+  expect(csv.ok()).toBeTruthy();
+  const csvText = await csv.text();
+  expect(csvText).toContain('RFI-042');
+  expect(csvText).toContain('Confirmed Unrecorded');
 });
