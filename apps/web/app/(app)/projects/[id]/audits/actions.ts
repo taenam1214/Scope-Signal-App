@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireMembership } from '@/lib/auth';
 import { enqueueAudit } from '@/lib/processor';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Mirrors REVIEW_STATUSES in packages/shared and the review_status enum.
 const REVIEW_STATUSES = [
@@ -84,6 +85,10 @@ export async function startAudit(
 ): Promise<StartAuditState> {
   const { membership, userId, supabase } = await requireMembership();
   const orgId = membership.organizationId;
+
+  if (!rateLimit(`audit:${userId}`, 10, 60_000)) {
+    return { error: 'Too many audit requests. Please wait a moment and try again.' };
+  }
 
   const { data: project } = await supabase
     .from('projects')

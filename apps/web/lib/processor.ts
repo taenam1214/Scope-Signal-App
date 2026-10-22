@@ -78,6 +78,21 @@ export async function parseRegister(
   return postForm<RegisterParseResult>('/parse/register', form);
 }
 
+/** Render an audit report PDF from an assembled payload. Returns raw PDF bytes. */
+export async function renderReportPdf(payload: unknown): Promise<ArrayBuffer> {
+  const resp = await fetch(`${PROCESSOR_URL}/reports/pdf`, {
+    method: 'POST',
+    headers: {
+      'X-Worker-Auth': WORKER_AUTH_SECRET,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+  if (!resp.ok) throw new Error(`Processor report failed (${resp.status})`);
+  return resp.arrayBuffer();
+}
+
 /** Enqueue a durable audit job on the processor; the RQ worker runs it. */
 export async function enqueueAudit(auditRunId: string): Promise<{ job_id: string }> {
   const resp = await fetch(`${PROCESSOR_URL}/audits/enqueue`, {

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireMembership } from '@/lib/auth';
 import { parseDocument, parseRegister, type RegisterRow } from '@/lib/processor';
+import { rateLimit } from '@/lib/rate-limit';
 import { UPLOAD_LIMITS, sha256Hex, validateUpload } from '@/lib/uploads';
 
 export type UploadState = { error?: string; ok?: boolean } | undefined;
@@ -33,6 +34,10 @@ export async function uploadDocument(
 ): Promise<UploadState> {
   const { membership, userId, supabase } = await requireMembership();
   const orgId = membership.organizationId;
+
+  if (!rateLimit(`upload:${userId}`, 30, 60_000)) {
+    return { error: 'Too many uploads. Please wait a moment and try again.' };
+  }
 
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
@@ -192,8 +197,12 @@ export async function previewRegister(
   _prev: PreviewState,
   formData: FormData,
 ): Promise<PreviewState> {
-  const { membership, supabase } = await requireMembership();
+  const { membership, userId, supabase } = await requireMembership();
   const orgId = membership.organizationId;
+
+  if (!rateLimit(`upload:${userId}`, 30, 60_000)) {
+    return { error: 'Too many uploads. Please wait a moment and try again.' };
+  }
 
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
