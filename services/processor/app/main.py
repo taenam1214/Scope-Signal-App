@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import json
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 
 from app import __version__
 from app.config import get_settings
 from app.parsers import parse_document, parse_register_csv
+from app.reports.pdf import render_pdf
+from app.reports.schemas import ReportPayload
 from app.schemas import DocumentParseResult, RegisterParseResult
 from app.worker.queue import enqueue_audit
 
@@ -84,3 +86,13 @@ def enqueue_audit_endpoint(
     """Enqueue a durable audit job; the RQ worker processes it asynchronously."""
     job_id = enqueue_audit(body.audit_run_id)
     return EnqueueAuditResponse(job_id=job_id)
+
+
+@app.post("/reports/pdf")
+def report_pdf_endpoint(
+    payload: ReportPayload,
+    _auth: None = Depends(require_worker_auth),
+) -> Response:
+    """Render an audit report PDF from the assembled payload."""
+    pdf = render_pdf(payload)
+    return Response(content=pdf, media_type="application/pdf")
